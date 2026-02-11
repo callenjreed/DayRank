@@ -37,8 +37,8 @@
     <section id="tab-days">
       <section class="controls">
         <div class="seg">
-          <button class="seg-btn active" data-sort="score">Sort: Score</button>
-          <button class="seg-btn" data-sort="date">Sort: Date</button>
+          <button class="seg-btn active" data-sort="score" type="button">Sort: Score</button>
+          <button class="seg-btn" data-sort="date" type="button">Sort: Date</button>
         </div>
 
         <div class="search">
@@ -92,6 +92,27 @@
           <div class="statLabel">Current Streak</div>
           <div class="statValue" id="streak">—</div>
         </div>
+      </section>
+
+      <!-- TREND PANEL (Chart + 30/90/All toggle) -->
+      <section class="panel">
+        <div class="panelTitleRow">
+          <h3>Trend</h3>
+
+          <div class="seg seg-sm" id="rangeSeg">
+            <button class="seg-btn active" data-range="30" type="button">30</button>
+            <button class="seg-btn" data-range="90" type="button">90</button>
+            <button class="seg-btn" data-range="all" type="button">All</button>
+          </div>
+        </div>
+
+        <span class="muted tiny" id="chartHint">—</span>
+
+        <canvas id="trendChart" width="900" height="320" aria-label="Score trend chart"></canvas>
+
+        <p class="muted tiny" style="margin:10px 2px 0;">
+          Blue = daily score • Gray = 7-day rolling average
+        </p>
       </section>
 
       <section class="panel">
