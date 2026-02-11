@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <title>Day Rank</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="title">
+      <h1>Day Rank</h1>
+      <p class="subtitle" id="statsLine">—</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn ghost" id="exportBtn" title="Export your data">Export</button>
+      <label class="btn ghost" for="importFile" title="Import data (JSON)">Import</label>
+      <input id="importFile" type="file" accept="application/json" hidden />
+      <button class="btn" id="addBtn">+ Add</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="days">Days</button>
+      <button class="tab" data-tab="stats">Stats</button>
+    </nav>
+
+    <!-- DAYS TAB -->
+    <section id="tab-days">
+      <section class="controls">
+        <div class="seg">
+          <button class="seg-btn active" data-sort="score">Sort: Score</button>
+          <button class="seg-btn" data-sort="date">Sort: Date</button>
+        </div>
+
+        <div class="search">
+          <input id="searchInput" type="search" placeholder="Search notes…" />
+        </div>
+      </section>
+
+      <section id="list" class="list"></section>
+
+      <section id="empty" class="empty hidden">
+        <h2>No days yet</h2>
+        <p>Tap <b>+ Add</b> to log your first day and rate it out of 100.</p>
+      </section>
+    </section>
+
+    <!-- STATS TAB -->
+    <section id="tab-stats" class="hidden">
+      <section class="statsGrid">
+        <div class="statCard">
+          <div class="statLabel">All-time Avg</div>
+          <div class="statValue" id="avgAll">—</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">This Week Avg</div>
+          <div class="statValue" id="avgWeek">—</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">This Month Avg</div>
+          <div class="statValue" id="avgMonth">—</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">This Year Avg</div>
+          <div class="statValue" id="avgYear">—</div>
+        </div>
+      </section>
+
+      <section class="statsGrid">
+        <div class="statCard">
+          <div class="statLabel">Best Day</div>
+          <div class="statValue small" id="bestDay">—</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">Worst Day</div>
+          <div class="statValue small" id="worstDay">—</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">Logged Days</div>
+          <div class="statValue" id="countDays">—</div>
+        </div>
+        <div class="statCard">
+          <div class="statLabel">Current Streak</div>
+          <div class="statValue" id="streak">—</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panelTitleRow">
+          <h3>Top 10 Days</h3>
+          <span class="muted" id="top10Hint">—</span>
+        </div>
+        <div id="top10List" class="topList"></div>
+      </section>
+
+      <section class="panel">
+        <h3>Score Distribution</h3>
+        <div class="dist" id="distBars"></div>
+        <p class="muted tiny">Buckets: 90–100, 75–89, 60–74, 40–59, 0–39</p>
+      </section>
+    </section>
+
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle">New Entry</h2>
+
+      <form id="entryForm">
+        <div class="grid">
+          <label>
+            Date
+            <input id="dateInput" type="date" required />
+          </label>
+
+          <label>
+            Score (0–100)
+            <input id="scoreInput" type="number" min="0" max="100" inputmode="numeric" required />
+          </label>
+        </div>
+
+        <label>
+          Notes
+          <textarea id="notesInput" rows="7" placeholder="What happened today? Why this score?"></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" class="btn ghost" id="cancelBtn">Cancel</button>
+          <button type="submit" class="btn" id="saveBtn">Save</button>
+        </div>
+
+        <div class="danger-row hidden" id="dangerRow">
+          <button type="button" class="btn danger" id="deleteBtn">Delete Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
