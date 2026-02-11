@@ -1,4 +1,4 @@
-const CACHE = "dayrank-cache-v1";
+const CACHE = "dayrank-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
