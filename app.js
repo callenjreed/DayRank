@@ -22,7 +22,7 @@ const deleteBtn = el("deleteBtn");
 
 const searchInput = el("searchInput");
 
-const sortButtons = Array.from(document.querySelectorAll(".seg-btn"));
+const sortButtons = Array.from(document.querySelectorAll(".seg-btn[data-sort]"));
 const tabButtons = Array.from(document.querySelectorAll(".tab"));
 const tabDays = el("tab-days");
 const tabStats = el("tab-stats");
@@ -40,8 +40,15 @@ const top10List = el("top10List");
 const top10Hint = el("top10Hint");
 const distBars = el("distBars");
 
+// Trend chart + range toggle
+const trendChart = el("trendChart");
+const chartHint = el("chartHint");
+const rangeSeg = el("rangeSeg");
+const rangeButtons = rangeSeg ? Array.from(rangeSeg.querySelectorAll(".seg-btn")) : [];
+
 let entries = loadEntries();
-let currentSort = "score";
+let currentSort = "score"; // "score" | "date"
+let currentRange = "30";   // "30" | "90" | "all"
 let editingId = null;
 
 initPWA();
@@ -80,7 +87,7 @@ function wireUI() {
     } else {
       entries.push({
         id: crypto.randomUUID(),
-        date: dateStr,
+        date: dateStr,        // YYYY-MM-DD
         score,
         notes,
         createdAt: Date.now(),
@@ -127,6 +134,15 @@ function wireUI() {
         tabDays.classList.add("hidden");
         tabStats.classList.remove("hidden");
       }
+      renderAll();
+    });
+  });
+
+  rangeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      rangeButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentRange = btn.dataset.range;
       renderAll();
     });
   });
@@ -239,8 +255,11 @@ function renderList() {
   }
 }
 
+/* ---------------- STATS + TREND ---------------- */
+
 function renderStats() {
   const allScores = entries.map(e => e.score);
+
   countDays.textContent = entries.length ? String(entries.length) : "—";
   avgAll.textContent = entries.length ? fmt1(average(allScores)) : "—";
 
@@ -258,6 +277,7 @@ function renderStats() {
       if (a.score !== b.score) return b.score - a.score;
       return b.date.localeCompare(a.date);
     });
+
     const best = sortedByScore[0];
     const worst = sortedByScore[sortedByScore.length - 1];
 
@@ -267,6 +287,8 @@ function renderStats() {
     renderTop10(sortedByScore.slice(0, 10));
     renderDistribution(entries);
     streakEl.textContent = String(calcStreak(entries));
+
+    renderTrendChart(entries);
   } else {
     bestDay.textContent = "—";
     worstDay.textContent = "—";
@@ -274,6 +296,7 @@ function renderStats() {
     top10Hint.textContent = "—";
     distBars.innerHTML = "";
     streakEl.textContent = "—";
+    clearTrendChart();
   }
 }
 
@@ -361,8 +384,173 @@ function renderDistribution(entries) {
   }
 }
 
+/* ---------------- TREND CHART ---------------- */
+
+function clearTrendChart(){
+  if (!trendChart) return;
+  const ctx = trendChart.getContext("2d");
+  ctx.clearRect(0, 0, trendChart.width, trendChart.height);
+  if (chartHint) chartHint.textContent = "—";
+}
+
+function renderTrendChart(entries){
+  if (!trendChart) return;
+
+  // Keep latest score per date (if duplicates exist)
+  const byDate = new Map();
+  for (const e of entries.slice().sort((a,b)=>a.updatedAt-b.updatedAt)) {
+    byDate.set(e.date, e.score);
+  }
+
+  let dates = Array.from(byDate.keys()).sort();
+
+  if (currentRange !== "all") {
+    const keep = parseInt(currentRange, 10); // 30 or 90
+    dates = dates.slice(Math.max(0, dates.length - keep));
+  }
+
+  const series = dates.map(d => ({ date: d, score: byDate.get(d) }));
+
+  if (!series.length) {
+    clearTrendChart();
+    return;
+  }
+
+  if (chartHint) {
+    const first = series[0].date;
+    const last = series[series.length-1].date;
+    chartHint.textContent = `${series.length} days • ${formatDatePretty(first)} → ${formatDatePretty(last)}`;
+  }
+
+  const ctx = trendChart.getContext("2d");
+
+  const W = trendChart.width;
+  const H = trendChart.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 44, padR = 16, padT = 16, padB = 34;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+
+  const yMin = 0, yMax = 100;
+
+  const xForIndex = (i, n) => padL + (n <= 1 ? innerW/2 : (i / (n - 1)) * innerW);
+  const yForScore = (s) => padT + (1 - (s - yMin) / (yMax - yMin)) * innerH;
+
+  // Grid lines + y labels
+  ctx.save();
+  ctx.globalAlpha = 0.8;
+  ctx.strokeStyle = "rgba(255,255,255,.08)";
+  ctx.lineWidth = 1;
+  ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial";
+  ctx.fillStyle = "rgba(255,255,255,.55)";
+
+  const ticks = [0,25,50,75,100];
+  for (const t of ticks) {
+    const y = yForScore(t);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.fillText(String(t), 10, y + 4);
+  }
+  ctx.restore();
+
+  // X axis baseline
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,.16)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, H - padB);
+  ctx.lineTo(W - padR, H - padB);
+  ctx.stroke();
+  ctx.restore();
+
+  const scores = series.map(p => p.score);
+  const roll = rollingAvg(scores, 7);
+
+  // Rolling avg (gray)
+  drawLine(ctx, series, roll, xForIndex, yForScore, "rgba(255,255,255,.65)", 3);
+
+  // Daily score (blue)
+  drawLine(ctx, series, scores, xForIndex, yForScore, "rgba(79,124,255,.90)", 2);
+
+  // Points
+  ctx.save();
+  for (let i = 0; i < series.length; i++) {
+    const x = xForIndex(i, series.length);
+    const y = yForScore(series[i].score);
+    ctx.beginPath();
+    ctx.arc(x, y, 4.2, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(79,124,255,.95)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.25)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // X labels (first/mid/last)
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,.55)";
+  ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial";
+  const labelIdx = uniqueLabelIndices(series.length);
+  for (const i of labelIdx) {
+    const x = xForIndex(i, series.length);
+    const label = shortMD(series[i].date);
+    const w = ctx.measureText(label).width;
+    ctx.fillText(label, x - w/2, H - 12);
+  }
+  ctx.restore();
+}
+
+function drawLine(ctx, series, values, xForIndex, yForScore, stroke, width){
+  ctx.save();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = width;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  for (let i = 0; i < series.length; i++) {
+    const x = xForIndex(i, series.length);
+    const y = yForScore(values[i]);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function rollingAvg(nums, window){
+  const out = [];
+  for (let i = 0; i < nums.length; i++) {
+    const start = Math.max(0, i - window + 1);
+    const slice = nums.slice(start, i + 1);
+    out.push(slice.reduce((a,b)=>a+b,0) / slice.length);
+  }
+  return out;
+}
+
+function uniqueLabelIndices(n){
+  if (n <= 1) return [0];
+  if (n === 2) return [0,1];
+  const mid = Math.floor((n - 1) / 2);
+  return [0, mid, n - 1];
+}
+
+function shortMD(isoDate){
+  const [y,m,d] = isoDate.split("-").map(Number);
+  return `${m}/${d}`;
+}
+
+/* ---------------- EXPORT / IMPORT ---------------- */
+
 function exportData() {
-  const payload = { version: 1, exportedAt: new Date().toISOString(), entries };
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    entries
+  };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
@@ -409,6 +597,8 @@ function importData(evt) {
   };
   reader.readAsText(file);
 }
+
+/* ---------------- STORAGE + HELPERS ---------------- */
 
 function loadEntries() {
   try {
@@ -487,7 +677,7 @@ function toISODate(dt) {
 function startOfWeek(dt) {
   const d = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
   const day = d.getDay(); // 0=Sun
-  const diff = (day + 6) % 7; // Mon-start
+  const diff = (day + 6) % 7; // Mon-start week
   d.setDate(d.getDate() - diff);
   return d;
 }
@@ -516,11 +706,13 @@ function scoresInRange(entries, startDt, endDt) {
     .filter(e => e.date >= startISO && e.date <= endISO)
     .map(e => e.score);
 }
+
+// Streak = consecutive logged days ending on most recent logged day
 function calcStreak(entries) {
   if (!entries.length) return 0;
   const dates = new Set(entries.map(e => e.date));
-  const sorted = Array.from(dates).sort();
-  let cursor = sorted[sorted.length - 1];
+  const sorted = Array.from(dates).sort(); // ascending
+  let cursor = sorted[sorted.length - 1]; // most recent logged date
   let streak = 0;
   while (dates.has(cursor)) {
     streak++;
